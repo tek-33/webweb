@@ -35,7 +35,6 @@
             justify-content: space-between;
             align-items: center;
             pointer-events: none;
-            /* ให้คลิกทะลุไปหาปุ่มข้างหลังได้ */
             z-index: 5;
         }
 
@@ -73,7 +72,6 @@
             opacity: 0.6;
         }
 
-        /* Scanline & Vignette Effect */
         body::after {
             content: "";
             position: absolute;
@@ -81,15 +79,12 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background:
-                radial-gradient(circle, transparent 20%, rgba(0, 0, 0, 0.4) 100%),
-                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background: radial-gradient(circle, transparent 20%, rgba(0, 0, 0, 0.4) 100%), linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
             background-size: 100% 100%, 100% 4px;
             pointer-events: none;
             z-index: 10;
         }
 
-        /* HUD & UI Elements */
         #overlay {
             position: absolute;
             inset: 0;
@@ -231,6 +226,8 @@
     </div>
 
     <audio id="labVoice" src="voice (1).mp3" loop></audio>
+    <audio id="sndCorrect" src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3"></audio>
+    <audio id="sndWrong" src="https://assets.mixkit.co/active_storage/sfx/2959/2959-preview.mp3"></audio>
 
     <div id="overlay">
         <h1 style="letter-spacing: 15px; color: var(--neon-red); margin-bottom: 10px;">MICRO-LAB</h1>
@@ -244,22 +241,18 @@
             <span>[ SYSTEM ANALYSIS ]</span>
             <span><span id="mag-val">40</span>X</span>
         </div>
-
         <div class="info-block">
             <span class="info-tag" style="background: rgba(255,0,0,0.2); color: var(--neon-red);">ARTERY</span><br>
             ทิศทางไหลจาก <span style="color:#fff">"หัว → หาง"</span> นำออกซิเจนไปเลี้ยงเนื้อเยื่อ
         </div>
-
         <div class="info-block">
             <span class="info-tag" style="background: rgba(255,255,255,0.1); color: #fff;">CAPILLARY</span><br>
             จุดสำคัญในการ <span style="color:var(--neon-green)">"แลกเปลี่ยนก๊าซ"</span>
         </div>
-
         <div class="info-block">
             <span class="info-tag" style="background: rgba(0,100,255,0.2); color: var(--neon-blue);">VEIN</span><br>
             ทิศทางไหลจาก <span style="color:#fff">"หาง → หัว"</span> นำ CO₂ กลับเข้าสู่หัวใจ
         </div>
-
         <div style="font-size: 10px; color: #555; border-top: 1px solid #222; padding-top: 8px;">
             STATUS: <span style="color:var(--neon-green)">STABLE</span> | BPM: <span id="bpm-val">72</span>
         </div>
@@ -303,6 +296,9 @@
         const canvas = document.getElementById('bloodCanvas');
         const ctx = canvas.getContext('2d');
         const voiceAudio = document.getElementById('labVoice');
+        const sndCorrect = document.getElementById('sndCorrect');
+        const sndWrong = document.getElementById('sndWrong');
+
         let width, height, arteryY, veinY, zoom = 0.2;
         let isStarted = false;
         const particles = [];
@@ -457,8 +453,16 @@
                 });
             },
             check(idx, btn) {
-                if (idx === this.questions[this.current].cor) { btn.classList.add('correct'); this.score++; }
-                else { btn.classList.add('wrong'); }
+                if (idx === this.questions[this.current].cor) {
+                    btn.classList.add('correct');
+                    this.score++;
+                    sndCorrect.currentTime = 0; // รีเซ็ตเวลาเพื่อให้เล่นซ้ำได้ทันที
+                    sndCorrect.play();
+                } else {
+                    btn.classList.add('wrong');
+                    sndWrong.currentTime = 0;
+                    sndWrong.play();
+                }
                 setTimeout(() => {
                     this.current++;
                     if (this.current < this.questions.length) this.load();
