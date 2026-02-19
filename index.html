@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Micro-Lab: Advanced Bio-Realistic Betta Scan v8.5</title>
+    <style>
+        :root {
+            --neon-green: #00ffaa;
+            --neon-blue: #00aaff;
+            --neon-red: #ff4444;
+            --glass-bg: rgba(5, 5, 5, 0.9);
+        }
+
+        body {
+            margin: 0;
+            background: #020000;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+
+        canvas {
+            display: block;
+            filter: contrast(115%) brightness(90%) saturate(130%) blur(0.4px);
+            z-index: 1;
+        }
+
+        /* --- FISH CHASSIS (STATIC HEAD & TAIL) --- */
+        #fish-frame {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            /* ให้คลิกทะลุไปหาปุ่มข้างหลังได้ */
+            z-index: 5;
+        }
+
+        .fish-part {
+            height: 100vh;
+            width: 18vw;
+            background: rgba(10, 2, 2, 0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: 0.5s;
+        }
+
+        .head-section {
+            clip-path: polygon(0 0, 100% 0, 75% 50%, 100% 100%, 0 100%);
+            border-right: 3px solid var(--neon-red);
+            box-shadow: 15px 0 30px rgba(255, 68, 68, 0.15);
+        }
+
+        .tail-section {
+            clip-path: polygon(25% 0, 100% 0, 100% 100%, 25% 100%, 0 50%);
+            border-left: 3px solid var(--neon-blue);
+            box-shadow: -15px 0 30px rgba(0, 170, 255, 0.15);
+        }
+
+        .part-label {
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            letter-spacing: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            opacity: 0.6;
+        }
+
+        /* Scanline & Vignette Effect */
+        body::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle, transparent 20%, rgba(0, 0, 0, 0.4) 100%),
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 100%, 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* HUD & UI Elements */
+        #overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle, #1a0000 0%, #000 100%);
+            z-index: 1000;
+            transition: opacity 1.5s ease;
+        }
+
+        .btn-cyber {
+            padding: 15px 35px;
+            background: transparent;
+            border: 2px solid var(--neon-green);
+            color: var(--neon-green);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(0, 255, 170, 0.2);
+            transition: 0.3s;
+            font-weight: bold;
+        }
+
+        .btn-cyber:hover {
+            background: var(--neon-green);
+            color: #000;
+            box-shadow: 0 0 40px var(--neon-green);
+        }
+
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20%;
+            width: 280px;
+            padding: 20px;
+            opacity: 0;
+            transition: opacity 1s;
+            z-index: 20;
+            pointer-events: none;
+            background: linear-gradient(135deg, rgba(20, 5, 5, 0.95), rgba(5, 5, 15, 0.8));
+            border-left: 3px solid var(--neon-red);
+        }
+
+        .info-block {
+            font-size: 11px;
+            line-height: 1.5;
+            margin-bottom: 15px;
+            color: #ccc;
+        }
+
+        .info-tag {
+            display: inline-block;
+            padding: 2px 5px;
+            margin-bottom: 4px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 10px;
+        }
+
+        .page {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: 0.6s ease;
+            z-index: 500;
+        }
+
+        .active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .blurred-canvas {
+            filter: blur(20px) brightness(0.4);
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 40px;
+            width: 85%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        .option {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #eee;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        .option:hover {
+            border-color: var(--neon-green);
+            background: rgba(0, 255, 170, 0.05);
+        }
+
+        .correct {
+            background: rgba(0, 200, 80, 0.3) !important;
+            border-color: #0f0 !important;
+        }
+
+        .wrong {
+            background: rgba(200, 0, 0, 0.3) !important;
+            border-color: #f00 !important;
+        }
+
+        #nav-controls {
+            position: absolute;
+            bottom: 30px;
+            right: 20%;
+            z-index: 600;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="fish-frame">
+        <div class="fish-part head-section">
+            <span class="part-label" style="color: var(--neon-red);">ANTERIOR (HEAD)</span>
+        </div>
+        <div class="fish-part tail-section">
+            <span class="part-label" style="color: var(--neon-blue);">POSTERIOR (TAIL)</span>
+        </div>
+    </div>
+
+    <audio id="labVoice" src="voice (1).mp3" loop></audio>
+
+    <div id="overlay">
+        <h1 style="letter-spacing: 15px; color: var(--neon-red); margin-bottom: 10px;">MICRO-LAB</h1>
+        <p style="color: #666; font-size: 12px; margin-bottom: 30px;">BIO-SCANNER TERMINAL V.8.5</p>
+        <button id="start-btn" class="btn-cyber">INITIALIZE SCAN</button>
+    </div>
+
+    <div id="hud">
+        <div
+            style="font-size: 14px; color: var(--neon-green); margin-bottom: 12px; border-bottom: 1px solid #333; padding-bottom: 5px; display: flex; justify-content: space-between;">
+            <span>[ SYSTEM ANALYSIS ]</span>
+            <span><span id="mag-val">40</span>X</span>
+        </div>
+
+        <div class="info-block">
+            <span class="info-tag" style="background: rgba(255,0,0,0.2); color: var(--neon-red);">ARTERY</span><br>
+            ทิศทางไหลจาก <span style="color:#fff">"หัว → หาง"</span> นำออกซิเจนไปเลี้ยงเนื้อเยื่อ
+        </div>
+
+        <div class="info-block">
+            <span class="info-tag" style="background: rgba(255,255,255,0.1); color: #fff;">CAPILLARY</span><br>
+            จุดสำคัญในการ <span style="color:var(--neon-green)">"แลกเปลี่ยนก๊าซ"</span>
+        </div>
+
+        <div class="info-block">
+            <span class="info-tag" style="background: rgba(0,100,255,0.2); color: var(--neon-blue);">VEIN</span><br>
+            ทิศทางไหลจาก <span style="color:#fff">"หาง → หัว"</span> นำ CO₂ กลับเข้าสู่หัวใจ
+        </div>
+
+        <div style="font-size: 10px; color: #555; border-top: 1px solid #222; padding-top: 8px;">
+            STATUS: <span style="color:var(--neon-green)">STABLE</span> | BPM: <span id="bpm-val">72</span>
+        </div>
+    </div>
+
+    <div id="nav-controls">
+        <button class="btn-cyber" style="font-size: 11px;" onclick="app.transitionTo('quiz')">ASSESSMENT MODE</button>
+    </div>
+
+    <div id="page-quiz" class="page">
+        <div class="glass-panel">
+            <h2 style="color: var(--neon-green);">BIOLOGY TEST</h2>
+            <div id="quiz-container">
+                <p id="question-text"></p>
+                <div id="options-container"></div>
+            </div>
+            <div id="result-container" style="display:none">
+                <h3 id="score-text"></h3>
+                <button class="btn-cyber" onclick="app.transitionTo('members')">VIEW CREDITS</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-members" class="page">
+        <div class="glass-panel">
+            <h2 style="color: var(--neon-blue);">RESEARCH TEAM</h2>
+            <div style="text-align: left; margin: 20px 0; font-size: 14px; line-height: 2;">
+                <p>1. นายสรวิชญ์ ศรีลาออน เลขที่ 11</p>
+                <p>2. นายชยางกูร เชื้อเจริญ เลขที่ 17</p>
+                <p>3. นายปองคุณ อนุกิตติรัตน์ เลขที่ 19</p>
+                <p>4. นางสาวกาญจนา คชศิลา เลขที่ 33</p>
+                <p style="text-align: center; color: #555; margin-top:10px;">ม.5/8 - Lung Group 3</p>
+            </div>
+            <button class="btn-cyber" onclick="app.transitionTo('sim')">RE-SCAN</button>
+        </div>
+    </div>
+
+    <canvas id="bloodCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('bloodCanvas');
+        const ctx = canvas.getContext('2d');
+        const voiceAudio = document.getElementById('labVoice');
+        let width, height, arteryY, veinY, zoom = 0.2;
+        let isStarted = false;
+        const particles = [];
+        const chromatophores = [];
+        const capillaryPaths = [];
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            arteryY = height * 0.35; veinY = height * 0.65;
+            createCapillaryNetwork();
+            createTissue();
+        }
+
+        function createTissue() {
+            chromatophores.length = 0;
+            for (let i = 0; i < 80; i++) {
+                chromatophores.push({
+                    x: Math.random() * width, y: Math.random() * height,
+                    size: Math.random() * 60 + 20,
+                    color: `rgba(${20 + Math.random() * 30}, ${Math.random() * 10}, 5, ${0.1 + Math.random() * 0.15})`,
+                    vx: (Math.random() - 0.5) * 0.2
+                });
+            }
+        }
+
+        function createCapillaryNetwork() {
+            capillaryPaths.length = 0;
+            for (let i = 0; i < 15; i++) {
+                const xBase = (width * 0.1) + (i / 15) * (width * 0.8);
+                capillaryPaths.push({
+                    startX: xBase, startY: arteryY,
+                    cp1x: xBase + (Math.random() - 0.5) * 400, cp1y: height * 0.5,
+                    cp2x: xBase + (Math.random() - 0.5) * 400, cp2y: height * 0.5,
+                    endX: xBase + (Math.random() - 0.5) * 150, endY: veinY
+                });
+            }
+        }
+
+        function drawVessels(pulse) {
+            const artGrad = ctx.createLinearGradient(0, arteryY - 40, 0, arteryY + 40);
+            artGrad.addColorStop(0, 'rgba(40, 0, 0, 0.8)');
+            artGrad.addColorStop(0.5, `rgba(120, 20, 20, ${0.4 + pulse * 0.3})`);
+            artGrad.addColorStop(1, 'rgba(40, 0, 0, 0.8)');
+            ctx.fillStyle = artGrad;
+            ctx.fillRect(0, arteryY - (35 + pulse * 12) / 2, width, 35 + pulse * 12);
+
+            const veinGrad = ctx.createLinearGradient(0, veinY - 30, 0, veinY + 30);
+            veinGrad.addColorStop(0, 'rgba(0, 5, 30, 0.8)');
+            veinGrad.addColorStop(0.5, 'rgba(20, 40, 100, 0.4)');
+            veinGrad.addColorStop(1, 'rgba(0, 5, 30, 0.8)');
+            ctx.fillStyle = veinGrad;
+            ctx.fillRect(0, veinY - 15, width, 30);
+        }
+
+        class BloodCell {
+            constructor() { this.init(true); }
+            init(randX = false) {
+                this.mode = 'artery';
+                this.x = randX ? Math.random() * width : -50;
+                this.t = 0;
+                this.offsetY = (Math.random() - 0.5) * 25;
+                this.speedMult = 0.6 + Math.random() * 0.8;
+                this.path = capillaryPaths[Math.floor(Math.random() * capillaryPaths.length)];
+                this.size = 5 + Math.random() * 3;
+            }
+            update(pulse) {
+                if (this.mode === 'artery') {
+                    this.x += (7 + pulse * 15) * this.speedMult;
+                    this.y = arteryY + (this.offsetY * (1 + pulse * 0.4));
+                    if (this.x > this.path.startX && Math.random() > 0.985) this.mode = 'capillary';
+                    if (this.x > width + 50) this.x = -50;
+                } else if (this.mode === 'capillary') {
+                    this.t += 0.002 * this.speedMult;
+                    const t = this.t;
+                    this.x = (1 - t) ** 3 * this.path.startX + 3 * (1 - t) ** 2 * t * this.path.cp1x + 3 * (1 - t) * t ** 2 * this.path.cp2x + t ** 3 * this.path.endX;
+                    this.y = (1 - t) ** 3 * this.path.startY + 3 * (1 - t) ** 2 * t * this.path.cp1y + 3 * (1 - t) * t ** 2 * this.path.cp2y + t ** 3 * this.path.endY;
+                    if (this.t >= 1) this.mode = 'vein';
+                } else {
+                    this.x -= (4 + pulse * 3) * this.speedMult;
+                    this.y = veinY + this.offsetY;
+                    if (this.x < -100) this.init();
+                }
+            }
+            draw() {
+                let r, g, b, a = 0.7;
+                if (this.mode === 'artery') [r, g, b] = [255, 30, 30];
+                else if (this.mode === 'vein') [r, g, b] = [40, 80, 255];
+                else { r = 255 - (this.t * 210); b = 30 + (this.t * 210); g = 30 + (this.t * 20); }
+                ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+                ctx.beginPath(); ctx.ellipse(this.x, this.y, this.size, this.size * 0.7, this.x * 0.01, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+
+        function animate() {
+            if (isStarted && zoom < 1.0) zoom += 0.003;
+            document.getElementById('mag-val').innerText = Math.floor(zoom * 400);
+            ctx.fillStyle = '#050000';
+            ctx.fillRect(0, 0, width, height);
+            const pulse = Math.pow(Math.sin(Date.now() * 0.002), 10);
+            ctx.save();
+            ctx.translate(width / 2, height / 2); ctx.scale(zoom, zoom); ctx.translate(-width / 2, -height / 2);
+            chromatophores.forEach(c => {
+                c.x += c.vx; if (c.x > width + 50) c.x = -50;
+                ctx.fillStyle = c.color; ctx.beginPath(); ctx.arc(c.x, c.y, c.size, 0, Math.PI * 2); ctx.fill();
+            });
+            drawVessels(pulse);
+            particles.forEach(p => { p.update(pulse); p.draw(); });
+            ctx.restore();
+            requestAnimationFrame(animate);
+        }
+
+        const app = {
+            transitionTo(newState) {
+                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                if (newState === 'sim') {
+                    canvas.classList.remove('blurred-canvas');
+                    document.getElementById('hud').style.opacity = '1';
+                    document.getElementById('nav-controls').style.display = 'block';
+                } else {
+                    canvas.classList.add('blurred-canvas');
+                    document.getElementById('hud').style.opacity = '0';
+                    document.getElementById(`page-${newState}`).classList.add('active');
+                    if (newState === 'quiz') quiz.init();
+                }
+            }
+        };
+
+        const quiz = {
+            current: 0, score: 0,
+            questions: [
+                { q: "1. ทำไมหลอดเลือด Artery ถึงต้องมีผนังที่หนาและยืดหยุ่น?", a: ["เพื่อแลกเปลี่ยนก๊าซได้ดีขึ้น", "เพื่อทนต่อแรงดันเลือดที่สูงจากหัวใจ", "เพื่อให้เลือดไหลย้อนกลับได้"], cor: 1 },
+                { q: "2. การแลกเปลี่ยนก๊าซ O2 และ CO2 เกิดขึ้นที่หลอดเลือดชนิดใด?", a: ["Artery", "Vein", "Capillary"], cor: 2 },
+                { q: "3. ในระบบจำลอง เลือดสีแดงเข้ม (Artery) มีทิศทางการไหลอย่างไร?", a: ["จากหางไปหัว", "จากหัวไปหาง", "ไหลวนอยู่กับที่"], cor: 1 }
+            ],
+            init() {
+                this.current = 0; this.score = 0;
+                document.getElementById('quiz-container').style.display = 'block';
+                document.getElementById('result-container').style.display = 'none';
+                this.load();
+            },
+            load() {
+                const q = this.questions[this.current];
+                document.getElementById('question-text').innerText = q.q;
+                const container = document.getElementById('options-container');
+                container.innerHTML = '';
+                q.a.forEach((opt, i) => {
+                    const b = document.createElement('button');
+                    b.className = 'option'; b.innerText = opt;
+                    b.onclick = () => this.check(i, b);
+                    container.appendChild(b);
+                });
+            },
+            check(idx, btn) {
+                if (idx === this.questions[this.current].cor) { btn.classList.add('correct'); this.score++; }
+                else { btn.classList.add('wrong'); }
+                setTimeout(() => {
+                    this.current++;
+                    if (this.current < this.questions.length) this.load();
+                    else this.showResult();
+                }, 1000);
+            },
+            showResult() {
+                document.getElementById('quiz-container').style.display = 'none';
+                document.getElementById('result-container').style.display = 'block';
+                document.getElementById('score-text').innerText = `TOTAL SCORE: ${this.score}/3`;
+            }
+        };
+
+        document.getElementById('start-btn').onclick = () => {
+            isStarted = true;
+            voiceAudio.play().catch(e => console.log("Audio play error"));
+            document.getElementById('overlay').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('overlay').style.display = 'none';
+                document.getElementById('hud').style.opacity = '1';
+                document.getElementById('nav-controls').style.display = 'block';
+            }, 1500);
+            setInterval(() => {
+                document.getElementById('bpm-val').innerText = 70 + Math.floor(Math.random() * 10);
+            }, 2000);
+        };
+
+        window.addEventListener('resize', resize);
+        resize();
+        for (let i = 0; i < 400; i++) particles.push(new BloodCell());
+        animate();
+    </script>
+</body>
+
+</html>
